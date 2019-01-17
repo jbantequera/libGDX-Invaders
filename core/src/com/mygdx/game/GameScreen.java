@@ -10,7 +10,6 @@ import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
@@ -18,17 +17,21 @@ import com.badlogic.gdx.utils.TimeUtils;
 import java.util.Random;
 
 public class GameScreen implements Screen {
-  	final Drop game;
+  	final Invaders game;
 
 	//Textures
 	Texture spaceshipImage;
 	Texture playerShotImage;
 	Texture alienImage;
 	Texture alienShotImage;
+	Texture backgroundImage;
 	
 	//Sound
-	Sound dropSound;
-	Music rainMusic;
+	Sound playerExplosionSound;
+	Sound alienExplosionSound;
+	Sound playerShotSound;
+	Sound alienShotSound;
+	Music gameMusic;
 	
 	//Camera
 	OrthographicCamera camera;
@@ -37,33 +40,52 @@ public class GameScreen implements Screen {
 	Rectangle spaceship;
 	Array<Rectangle> playerShots;
 	long lastPlayerShotTime;
-	static int playerSpeed = 350;
-	static int shotSpeed = 250;
+	int playerSpeed = 350;
+	int shotSpeed = 250;
 
 	//IA
 	Rectangle alien;
 	int alienDirection;
 	Array<Rectangle> alienShots;
 	long lastAlienShotTime;
-	static int alienSpeed = 200;
+	int alienSpeed = 200;
 	
 	//Logistic
 	int score;
 	int intentos;
+	Random dado;
+	double timeAux;
+	double alienShotCooldown;
+	double cooldownModifier;
 
-	public GameScreen(final Drop game) {
+	public GameScreen(final Invaders game) {
 		this.game = game;
 		
+		// LOGISTIC
+		this.score = 0;
+		this.intentos = 3;
+		cooldownModifier = 0.8;
+		dado = new Random();
+		timeAux = 0;
+		alienShotCooldown = (dado.nextInt(2) + 1) * cooldownModifier;
+		
 		// TEXTURES
+		game.font.getData().setScale(2);
 		spaceshipImage = new Texture(Gdx.files.internal("spaceship.png")); //99x75
 		playerShotImage = new Texture (Gdx.files.internal("playerShot.png")); //9x37
 		alienImage = new Texture(Gdx.files.internal("alien.png")); //104x84
 		alienShotImage = new Texture(Gdx.files.internal("alienShot.png")); //9x37 
+		backgroundImage = new Texture(Gdx.files.internal("gamebackground.png"));
 
-		// SOUND
-		dropSound = Gdx.audio.newSound(Gdx.files.internal("drop.wav"));
-		rainMusic = Gdx.audio.newMusic(Gdx.files.internal("rain.mp3"));
-		rainMusic.setLooping(true);
+		// SOUNDS
+		playerExplosionSound = Gdx.audio.newSound(Gdx.files.internal("playerExplosion.wav"));
+		alienExplosionSound = Gdx.audio.newSound(Gdx.files.internal("alienExplosion.wav"));
+		playerShotSound = Gdx.audio.newSound(Gdx.files.internal("playerShot.wav"));
+		alienShotSound = Gdx.audio.newSound(Gdx.files.internal("alienShot.wav"));
+		
+		// MUSIC
+		gameMusic = Gdx.audio.newMusic(Gdx.files.internal("game.mp3"));
+		gameMusic.setLooping(true);
 
 		// CAMERA
 		camera = new OrthographicCamera();
@@ -72,16 +94,12 @@ public class GameScreen implements Screen {
 		// SPAWN PLAYER AND IA
 		spawnSpaceship();
 		spawnAlien();
-		
-		// LOGISTIC
-		this.score = 0;
-		this.intentos = 3;
 	}
-
-	public GameScreen(final Drop game, int score, int intentos){
-		this(game);
-		this.score = score;
-		this.intentos = intentos;
+	
+	private void newLife(){
+		// SPAWN PLAYER AND IA
+		spawnSpaceship();
+		spawnAlien();
 	}
 	
 	private void spawnSpaceship() {
@@ -102,13 +120,21 @@ public class GameScreen implements Screen {
 		alien.width = 104;
 		alien.height = 84;
 		
-		alien.x = 800 / 2 - alien.width / 2;
-		alien.y = 400;
+		alien.x = dado.nextInt((int) (801 - alien.width));
+		alien.y = 390;
 		alienDirection = 1;
 		
+		// increments the speed of the alien everytime we keel 2 aliens
+		if (score % 2 == 0){
+			alienSpeed *= 1.1;
+			playerSpeed *= 1.05;
+			shotSpeed *= 1.1;
+			cooldownModifier *= 0.5;
+		}
+		
 		// create the shots arrays and spawn the first shot
+		playerShots = new Array<Rectangle>();
 		alienShots = new Array<Rectangle>();
-		spawnAlienShot();
 	}
 	
 	private void spawnAlienShot() {
@@ -119,7 +145,14 @@ public class GameScreen implements Screen {
 		shot.x = alien.x + (alien.width / 2) - (shot.width / 2);
 		shot.y = alien.y - shot.height;
 		alienShots.add(shot);
+		alienShotSound.play();
 		lastAlienShotTime = TimeUtils.nanoTime();
+		alienShotCooldown = (dado.nextInt(2) + 1) * 0.8;
+		
+		//Calculate new alien direction
+		if (dado.nextInt(2) == 0){
+			alienDirection *= -1;
+		}
 	}
 
 	private void spawnPlayerShot() {
@@ -131,6 +164,7 @@ public class GameScreen implements Screen {
 			shot.x = spaceship.x + (spaceship.width / 2) - (shot.width / 2);
 			shot.y = spaceship.y + spaceship.height;
 			playerShots.add(shot);
+			playerShotSound.play();
 			lastPlayerShotTime = TimeUtils.nanoTime();
 		}
 	}
@@ -142,9 +176,11 @@ public class GameScreen implements Screen {
 
 		// Begin a new batch and draw everything
 		game.batch.begin();
+		// Draws background
+		game.batch.draw(backgroundImage, 0, 0);
 		// Draws text
-		game.font.draw(game.batch, "LIFES: " + intentos, 0, 480);
-		game.font.draw(game.batch, "SCORE: " + score, 0, 460);
+		game.font.draw(game.batch, "LIFES: " + intentos, 5, 470);
+		game.font.draw(game.batch, "SCORE: " + score, 5, 440);
 		// Draws spaceship and aliens
 		game.batch.draw(spaceshipImage, spaceship.x, spaceship.y);
 		game.batch.draw(alienImage, alien.x, alien.y);
@@ -194,17 +230,22 @@ public class GameScreen implements Screen {
 			spaceship.x = 800 - spaceship.width;
 		
 		// check if we need to create a new shot
-		if (TimeUtils.nanoTime() - lastAlienShotTime > 1200000000)
+		if (timeAux >= alienShotCooldown){
 			spawnAlienShot();
+			timeAux = 0;
+		} else {
+			timeAux += delta;
+		}
+		
+		//if (TimeUtils.nanoTime() - lastAlienShotTime > (1000000000 * (dado.nextInt(4) + 1)))
+		//	spawnAlienShot();
 
 		//move the alien
 		alien.x += alienDirection * alienSpeed * Gdx.graphics.getDeltaTime();
 		if (alien.x < 0){
-			alien.y = alien.y - (alien.height + 10);
 			alienDirection = 1;
 		}
 		if (alien.x >= 800 - alien.width){
-			alien.y = alien.y - (alien.width + 10);
 			alienDirection = -1;
 		}
 		
@@ -219,20 +260,27 @@ public class GameScreen implements Screen {
 				iterAlien.remove();
 			}
 			if (shot.overlaps(spaceship)) {
-				dropSound.play();
+				playerExplosionSound.play();
 				iterAlien.remove();
 				intentos--;
 				
-				if (intentos == 0)
+				if (intentos == 0){
+					gameMusic.dispose();
 					game.setScreen(new FailScreen(game, score));
+				}
 				else
-					game.setScreen(new GameScreen(game, score, intentos));
+					newLife();
 			}
 		}
 		
 		if (alien.y <= (spaceship.height + 10)){
 			intentos--;
-			game.setScreen(new GameScreen(game, score, intentos));
+			
+			if (intentos == 0){
+					gameMusic.dispose();
+					game.setScreen(new FailScreen(game, score));
+			} else 
+				newLife();
 		}
 		
 		Iterator<Rectangle> iterPlayer = playerShots.iterator();
@@ -244,6 +292,7 @@ public class GameScreen implements Screen {
 			
 			//check if we hit the alien
 			if (shot.overlaps(alien)) {
+				alienExplosionSound.play();
 				iterPlayer.remove();
 				score++;
 				spawnAlien();
@@ -259,7 +308,7 @@ public class GameScreen implements Screen {
 	public void show() {
 		// start the playback of the background music
 		// when the screen is shown
-		rainMusic.play();
+		gameMusic.play();
 	}
 
 	@Override
@@ -276,11 +325,14 @@ public class GameScreen implements Screen {
 
 	@Override
 	public void dispose() {
+		playerShotImage.dispose();
 		alienShotImage.dispose();
 		spaceshipImage.dispose();
 		alienImage.dispose();
-		dropSound.dispose();
-		rainMusic.dispose();
+		playerExplosionSound.dispose();
+		alienExplosionSound.dispose();
+		alienShotSound.dispose();
+		playerShotSound.dispose();
 	}
 
 }

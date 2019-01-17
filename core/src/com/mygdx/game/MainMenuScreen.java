@@ -2,36 +2,51 @@ package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector3;
 
 public class MainMenuScreen implements Screen {
-	final Drop game;
+	final Invaders game;
 	OrthographicCamera camera;
+	Music mainMenuMusic;
+	Texture mainMenuImage;
+	
+	public MainMenuScreen(final Invaders game) {
+		this.game = game;
 
-	public MainMenuScreen(final Drop gam) {
-		game = gam;
-
+		mainMenuImage = new Texture(Gdx.files.internal("mainmenu.png"));
 		camera = new OrthographicCamera();
 		camera.setToOrtho(false, 800, 480);
+		
+		mainMenuMusic = Gdx.audio.newMusic(Gdx.files.internal("mainmenu.mp3"));
+		mainMenuMusic.setLooping(true);
 	}
 
 	@Override
 	public void render(float delta) {
-		Gdx.gl.glClearColor(0, 0, 0.2f, 1);
+		Gdx.gl.glClearColor(0, 0, 0, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
 		camera.update();
 		game.batch.setProjectionMatrix(camera.combined);
 
 		game.batch.begin();
-		game.font.draw(game.batch, "Welcome to Speis Inveiders!!! ", 100, 150);
-		game.font.draw(game.batch, "Tap anywhere to begin!", 100, 100);
+		game.batch.draw(mainMenuImage, 0, 0);
 		game.batch.end();
 
 		if (Gdx.input.isTouched()) {
-			game.setScreen(new GameScreen(game));
-			dispose();
+			Vector3 touchPos = new Vector3();
+			touchPos.set(Gdx.input.getX(), Gdx.input.getY(), 0);
+			camera.unproject(touchPos);
+			if (touchPos.x >= 238 && touchPos.x <= 561){
+				if (touchPos.y >= 16 && touchPos.y <= 88){
+					game.setScreen(new GameScreen(game));
+					dispose();
+				}
+			}
 		}
 	}
 
@@ -41,6 +56,7 @@ public class MainMenuScreen implements Screen {
 
 	@Override
 	public void show() {
+		mainMenuMusic.play();
 	}
 
 	@Override
@@ -57,5 +73,6 @@ public class MainMenuScreen implements Screen {
 
 	@Override
 	public void dispose() {
+		mainMenuMusic.dispose();
 	}
 }
