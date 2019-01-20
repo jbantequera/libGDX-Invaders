@@ -18,7 +18,7 @@ import java.util.Random;
 
 public class GameScreen implements Screen {
   	final Invaders game;
-
+	
 	//Textures
 	Texture spaceshipImage;
 	Texture playerShotImage;
@@ -42,7 +42,7 @@ public class GameScreen implements Screen {
 	long lastPlayerShotTime;
 	int playerSpeed = 350;
 	int shotSpeed = 250;
-
+	
 	//IA
 	Rectangle alien;
 	int alienDirection;
@@ -57,7 +57,7 @@ public class GameScreen implements Screen {
 	double timeAux;
 	double alienShotCooldown;
 	double cooldownModifier;
-
+	
 	public GameScreen(final Invaders game) {
 		this.game = game;
 		
@@ -76,7 +76,7 @@ public class GameScreen implements Screen {
 		alienImage = new Texture(Gdx.files.internal("alien.png")); //104x84
 		alienShotImage = new Texture(Gdx.files.internal("alienShot.png")); //9x37 
 		backgroundImage = new Texture(Gdx.files.internal("gamebackground.png"));
-
+		
 		// SOUNDS
 		playerExplosionSound = Gdx.audio.newSound(Gdx.files.internal("playerExplosion.wav"));
 		alienExplosionSound = Gdx.audio.newSound(Gdx.files.internal("alienExplosion.wav"));
@@ -86,11 +86,11 @@ public class GameScreen implements Screen {
 		// MUSIC
 		gameMusic = Gdx.audio.newMusic(Gdx.files.internal("game.mp3"));
 		gameMusic.setLooping(true);
-
+		
 		// CAMERA
 		camera = new OrthographicCamera();
 		camera.setToOrtho(false, 800, 480);
-
+		
 		// SPAWN PLAYER AND IA
 		spawnSpaceship();
 		spawnAlien();
