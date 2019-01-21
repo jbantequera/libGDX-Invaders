@@ -5,11 +5,20 @@
  */
 package com.mygdx.game;
 
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Array;
+
 /**
  *
  * @author Javier
  */
 public abstract class Entity {
-	public abstract void render();
+	protected Rectangle hitbox;
+	protected Array<Rectangle> shots;
+	
+	public abstract void spawn();
+	public abstract void spawnShot();
+	
+	public abstract void render(float delta);
 	public abstract void dispose();
 }
